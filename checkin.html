@@ -234,7 +234,7 @@ function populate() {
   gm.innerHTML = '<option value="">— vyber zápas —</option>' +
     cfg.games.map(g => `<option>${esc(g)}</option>`).join('');
   ps.innerHTML = '<option value="">— vyber pozíciu —</option>' +
-    cfg.positions.map(p => `<option value="${esc(p.name)}" data-r="${p.reward}">${esc(p.name)} – ${p.reward} €</option>`).join('');
+    cfg.positions.map(p => `<option value="${esc(p.name)}" data-r="${p.reward}">${esc(p.name)}</option>`).join('');
 }
 
 function updateHint() {
