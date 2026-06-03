@@ -242,7 +242,7 @@ function updateHint() {
   const opt = sel.selectedOptions[0];
   const hint = document.getElementById('reward-hint');
   if (opt && opt.dataset.r) {
-    hint.innerHTML = `<i class="ti ti-coin-euro" style="font-size:16px;color:var(--accent);"></i> Odmena za túto pozíciu: <strong>${opt.dataset.r} €</strong>`;
+    hint.innerHTML = `<i class="ti ti-coin-euro" ...></i> Odmena: <strong>${opt.dataset.r} €</strong>`;
   } else {
     hint.textContent = '';
   }
