@@ -274,6 +274,14 @@ function switchTab(t){
   if(t==='setup'){ document.getElementById('gas-code').textContent=GAS_CODE; document.getElementById('gs-url').value=S.gsUrl||''; }
 }
 
+function updateReward(i, val) {
+  const r = parseInt(val);
+  if (!isNaN(r) && r >= 0) {
+    S.positions[i].reward = r;
+    save();
+  }
+}  
+  
 function renderAdmin(){
   document.getElementById('st-workers').textContent=S.workers.length;
   document.getElementById('st-games').textContent=S.games.length;
@@ -282,8 +290,7 @@ function renderAdmin(){
   const gl=document.getElementById('games-list');
   gl.innerHTML=S.games.length?S.games.map((g,i)=>`<div class="row"><span class="badge badge-blue">${esc(g)}</span><button class="btn btn-sm btn-danger" onclick="removeGame(${i})"><i class="ti ti-x"></i></button></div>`).join(''):'<p style="font-size:13px;color:var(--text3);">Žiadne zápasy.</p>';
   const pl=document.getElementById('positions-list');
-  pl.innerHTML=S.positions.map((p,i)=>`<div class="row"><span style="font-size:13px;">${esc(p.name)}</span><div style="display:flex;align-items:center;gap:8px;"><span class="badge badge-amber">${p.reward} €</span><button class="btn btn-sm btn-danger" onclick="removePosition(${i})"><i class="ti ti-x"></i></button></div></div>`).join('');
-  const log=document.getElementById('admin-log');
+  pl.innerHTML=S.positions.map((p,i)=>`<div class="row"><span style="font-size:13px;">${esc(p.name)}</span><div style="display:flex;align-items:center;gap:8px;"><input type="number" value="${p.reward}" style="width:70px;padding:4px 8px;font-size:13px;border:0.5px solid var(--border2);border-radius:var(--radius-md);background:var(--bg);color:var(--text);" onchange="updateReward(${i}, this.value)"><span style="font-size:13px;">€</span><button class="btn btn-sm btn-danger" onclick="removePosition(${i})"><i class="ti ti-x"></i></button></div></div>`).join('');  const log=document.getElementById('admin-log');
   const recent=[...S.attendance].reverse().slice(0,10);
   log.innerHTML=recent.length?recent.map(r=>`<div class="row"><div><div style="font-size:13px;font-weight:500;">${esc(r.name)}</div><div style="font-size:11px;color:var(--text3);">${esc(r.game)} · ${esc(r.position)} · ${r.date}</div></div><span class="badge badge-green">${r.reward} €</span></div>`).join(''):'<p style="font-size:13px;color:var(--text3);">Zatiaľ žiadne záznamy.</p>';
 }
