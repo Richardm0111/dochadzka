@@ -237,16 +237,7 @@ function populate() {
     cfg.positions.map(p => `<option value="${esc(p.name)}" data-r="${p.reward}">${esc(p.name)}</option>`).join('');
 }
 
-function updateHint() {
-  const sel = document.getElementById('ci-position');
-  const opt = sel.selectedOptions[0];
-  const hint = document.getElementById('reward-hint');
-  if (opt && opt.dataset.r) {
-    hint.innerHTML = `<i class="ti ti-coin-euro" ...></i> Odmena: <strong>${opt.dataset.r} €</strong>`;
-  } else {
-    hint.textContent = '';
-  }
-}
+function updateHint() {}
 
 async function submitCheckin() {
   const name = document.getElementById('ci-name').value;
