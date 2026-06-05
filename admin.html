@@ -381,7 +381,13 @@ function exportOdmenyCSV(){
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function saveGsUrl(){ S.gsUrl=document.getElementById('gs-url').value.trim(); save(); document.getElementById('gs-result').style.color='var(--success)'; document.getElementById('gs-result').textContent='✓ URL uložená.'; }
+function saveGsUrl(){ 
+  S.gsUrl = document.getElementById('gs-url').value.trim(); 
+  save(); 
+  document.getElementById('gs-result').style.color='var(--success)'; 
+  document.getElementById('gs-result').textContent='✓ URL uložená.';
+  saveConfig(); // toto pošle aktuálne dáta do Sheets hneď
+}
 async function testConn(){
   if(!S.gsUrl){ document.getElementById('gs-result').textContent='Zadaj URL.'; return; }
   document.getElementById('gs-result').textContent='Testujem…';
