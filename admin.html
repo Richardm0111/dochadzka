@@ -266,6 +266,20 @@ function loadState() {
 }
 function save(){ try{localStorage.setItem('hc_v2',JSON.stringify(S));}catch(e){} }
 
+function saveConfig(){
+  if(!S.gsUrl) return;
+  fetch(S.gsUrl, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      action: 'saveConfig',
+      workers: S.workers,
+      games: S.games,
+      positions: S.positions
+    })
+  });
+}
+  
 const TABS=['admin','report','setup'];
 function switchTab(t){
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',TABS[i]===t));
@@ -274,13 +288,7 @@ function switchTab(t){
   if(t==='setup'){ document.getElementById('gas-code').textContent=GAS_CODE; document.getElementById('gs-url').value=S.gsUrl||''; }
 }
 
-function updateReward(i, val) {
-  const r = parseInt(val);
-  if (!isNaN(r) && r >= 0) {
-    S.positions[i].reward = r;
-    save();
-  }
-}  
+function updateReward(i, val){ const r=parseInt(val); if(!isNaN(r)&&r>=0){ S.positions[i].reward=r; save(); saveConfig(); } }
   
 function renderAdmin(){
   document.getElementById('st-workers').textContent=S.workers.length;
@@ -294,12 +302,12 @@ function renderAdmin(){
   const recent=[...S.attendance].reverse().slice(0,10);
   log.innerHTML=recent.length?recent.map(r=>`<div class="row"><div><div style="font-size:13px;font-weight:500;">${esc(r.name)}</div><div style="font-size:11px;color:var(--text3);">${esc(r.game)} · ${esc(r.position)} · ${r.date}</div></div><span class="badge badge-green">${r.reward} €</span></div>`).join(''):'<p style="font-size:13px;color:var(--text3);">Zatiaľ žiadne záznamy.</p>';
 }
-function addWorker(){ const v=document.getElementById('nw-name').value.trim(); if(!v)return; S.workers.push(v); document.getElementById('nw-name').value=''; save();renderAdmin(); }
-function removeWorker(i){ S.workers.splice(i,1); save();renderAdmin(); }
-function addGame(){ const d=document.getElementById('ng-date').value.trim(); const t=document.getElementById('ng-type').value; if(!d)return; S.games.push(`${d} ${t}`); document.getElementById('ng-date').value=''; save();renderAdmin(); }
-function removeGame(i){ S.games.splice(i,1); save();renderAdmin(); }
-function addPosition(){ const n=document.getElementById('np-name').value.trim(); const r=parseInt(document.getElementById('np-reward').value); if(!n||isNaN(r))return; S.positions.push({name:n,reward:r}); document.getElementById('np-name').value=''; document.getElementById('np-reward').value=''; save();renderAdmin(); }
-function removePosition(i){ S.positions.splice(i,1); save();renderAdmin(); }
+function addWorker(){ const v=document.getElementById('nw-name').value.trim(); if(!v)return; S.workers.push(v); document.getElementById('nw-name').value=''; save(); saveConfig(); renderAdmin(); }
+function removeWorker(i){ S.workers.splice(i,1); save(); saveConfig(); renderAdmin(); }
+function addGame(){ const d=document.getElementById('ng-date').value.trim(); const t=document.getElementById('ng-type').value; if(!d)return; S.games.push(`${d} ${t}`); document.getElementById('ng-date').value=''; save(); saveConfig(); renderAdmin(); }
+function removeGame(i){ S.games.splice(i,1); save(); saveConfig(); renderAdmin(); }
+function addPosition(){ const n=document.getElementById('np-name').value.trim(); const r=parseInt(document.getElementById('np-reward').value); if(!n||isNaN(r))return; S.positions.push({name:n,reward:r}); document.getElementById('np-name').value=''; document.getElementById('np-reward').value=''; save(); saveConfig(); renderAdmin(); }
+function removePosition(i){ S.positions.splice(i,1); save(); saveConfig(); renderAdmin(); }
 
 function renderReport(){
   const sel=document.getElementById('rep-month');
