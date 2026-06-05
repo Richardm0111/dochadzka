@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HC Dochádzka – Admin</title>
+<title>SportTrend Dochádzka-Admin</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
 <style>
   :root {
@@ -148,7 +148,7 @@
 <div class="panel" id="panel-report">
   <div class="month-bar">
     <select id="rep-month" onchange="renderReport()" style="max-width:180px;"></select>
-    <button class="btn btn-sm" onclick="exportCSV()"><i class="ti ti-download"></i> CSV</button>
+    <button class="btn btn-sm" onclick="exportOdmenyCSV()"><i class="ti ti-download"></i> Odmeny CSV</button>
     <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Tlač</button>
   </div>
   <div class="grid3" style="margin-bottom:1rem;">
@@ -331,7 +331,48 @@ function exportCSV(){
   const a=document.createElement('a'); a.href=url; a.download=`dochadzka_${chosen.replace('/','_')}.csv`; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+function exportOdmenyCSV(){
+  const chosen = document.getElementById('rep-month').value;
+  const filt = S.attendance.filter(a => a.month === chosen);
+  if (!filt.length) { alert('Žiadne záznamy pre tento mesiac.'); return; }
 
+  // Zoznam unikátnych pracovníkov v abecednom poradí
+  const workers = [...new Set(filt.map(a => a.name))].sort();
+
+  // Pre každého pracovníka zozbieraj jeho záznamy
+  const byW = {};
+  workers.forEach(w => { byW[w] = filt.filter(a => a.name === w); });
+
+  // Najdlhší zoznam zápasov (určí počet riadkov)
+  const maxRows = Math.max(...workers.map(w => byW[w].length));
+
+  // Hlavička — mená pracovníkov (každý zaberá 2 stĺpce: zápas | odmena)
+  const header = workers.flatMap(w => [w, '']);
+  const rows = [header];
+
+  // Riadky so zápasmi
+  for (let i = 0; i < maxRows; i++) {
+    const row = workers.flatMap(w => {
+      const entry = byW[w][i];
+      return entry ? [entry.game, entry.reward] : ['', ''];
+    });
+    rows.push(row);
+  }
+
+  // Prázdny riadok + súčty
+  rows.push(workers.flatMap(() => ['', '']));
+  const totals = workers.flatMap(w => ['spolu:', byW[w].reduce((s, a) => s + a.reward, 0)]);
+  rows.push(totals);
+
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `odmeny_${chosen.replace('/', '_')}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 function saveGsUrl(){ S.gsUrl=document.getElementById('gs-url').value.trim(); save(); document.getElementById('gs-result').style.color='var(--success)'; document.getElementById('gs-result').textContent='✓ URL uložená.'; }
 async function testConn(){
   if(!S.gsUrl){ document.getElementById('gs-result').textContent='Zadaj URL.'; return; }
