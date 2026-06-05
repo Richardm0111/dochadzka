@@ -201,7 +201,7 @@
 // ── Config – admin nastaví tieto hodnoty ──────────────────────────────
 // GAS_URL: vlož URL svojho Google Apps Script Web App
 // Ak je prázdna, dáta sa uložia len lokálne
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwvN6g4A_cz3xUeGPHBEGWi4XaYbJsbFsEEq_KIfOp0l3mdLdKaAotHx8DAKW-avcOwZQ/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyTntjYq4dcqo5P_AMqCBSKpSMqn-JWnpYI5oDqRvDd/dev';
 
 // Dáta sa načítajú zo spoločného localStorage (admin.html ich nastavuje)
 // Fallback: default hodnoty
@@ -226,15 +226,37 @@ function saveConfig(cfg) {
 let cfg = loadConfig();
 
 function populate() {
+  const gsUrl = cfg.gsUrl || GAS_URL;
+  if (!gsUrl) {
+    fillSelects(cfg.workers||[], cfg.games||[], cfg.positions||[]);
+    return;
+  }
+  fetch(gsUrl + '?action=config')
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        cfg.workers   = data.workers;
+        cfg.games     = data.games;
+        cfg.positions = data.positions;
+        saveConfig(cfg);
+      }
+      fillSelects(cfg.workers||[], cfg.games||[], cfg.positions||[]);
+    })
+    .catch(() => {
+      fillSelects(cfg.workers||[], cfg.games||[], cfg.positions||[]);
+    });
+}
+
+function fillSelects(workers, games, positions) {
   const nm = document.getElementById('ci-name');
   const gm = document.getElementById('ci-game');
   const ps = document.getElementById('ci-position');
   nm.innerHTML = '<option value="">— vyber meno —</option>' +
-    cfg.workers.map(w => `<option>${esc(w)}</option>`).join('');
+    workers.map(w => `<option>${esc(w)}</option>`).join('');
   gm.innerHTML = '<option value="">— vyber zápas —</option>' +
-    cfg.games.map(g => `<option>${esc(g)}</option>`).join('');
+    games.map(g => `<option>${esc(g)}</option>`).join('');
   ps.innerHTML = '<option value="">— vyber pozíciu —</option>' +
-    cfg.positions.map(p => `<option value="${esc(p.name)}" data-r="${p.reward}">${esc(p.name)}</option>`).join('');
+    positions.map(p => `<option value="${esc(p.name)}" data-r="${p.reward}">${esc(p.name)}</option>`).join('');
 }
 
 function updateHint() {}
