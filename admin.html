@@ -495,7 +495,8 @@ function resetAll(){ if(!confirm('Naozaj vymazať všetky lokálne dáta?'))retu
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 renderAdmin();
-document.getElementById('rep-month').innerHTML=`<option value="${new Date().getMonth()+1}/${new Date().getFullYear()}">${fmtM((new Date().getMonth()+1)+'/'+new Date().getFullYear())}</option>`;
+#document.getElementById('rep-month').innerHTML=`<option value="${new Date().getMonth()+1}/${new Date().getFullYear()}">${fmtM((new Date().getMonth()+1)+'/'+new Date().getFullYear())}</option>`;
+document.getElementById('rep-month').innerHTML=`<option value="${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}">${fmtM(String(new Date().getMonth()+1).padStart(2,'0')+'/'+new Date().getFullYear())}</option>`;
 </script>
 </body>
 </html>
