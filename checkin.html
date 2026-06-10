@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sk">
 <head>
 <meta charset="UTF-8">
@@ -121,6 +121,7 @@
   .btn-back:hover { background: var(--bg2); }
   .error-msg { font-size: 13px; color: var(--danger); margin-top: 8px; display: none; }
   .loading { opacity: 0.6; pointer-events: none; }
+  .load-notice { text-align:center; font-size:13px; color:var(--text3); padding:1rem 0; }
   footer { text-align: center; font-size: 11px; color: var(--text3); padding: 1rem; margin-top: auto; }
 </style>
 </head>
@@ -134,6 +135,8 @@
 
 <div class="content">
   <div id="ci-form">
+    <div id="load-notice" class="load-notice"><i class="ti ti-loader ti-spin"></i> Načítavam zoznam...</div>
+
     <div class="step-card">
       <div class="step-header">
         <div class="step-num">1</div>
@@ -198,25 +201,15 @@
 <footer>HK SportTrend-Dochádzka</footer>
 
 <script>
-// ── Config – admin nastaví tieto hodnoty ──────────────────────────────
-// GAS_URL: vlož URL svojho Google Apps Script Web App
-// Ak je prázdna, dáta sa uložia len lokálne
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwZwsnHJAecuW-5Ax0vwUObqZuZqd03_71AeVZwsScmmCYBnvUxpFb2j0z3iHGRQUP2SA/exec';
+// GAS_URL – hardcoded fallback ak nie je v localStorage
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwvN6g4A_cz3xUeGPHBEGWi4XaYbJsbFsEEq_KIfOp0l3mdLdKaAotHx8DAKW-avcOwZQ/exec';
 
-// Dáta sa načítajú zo spoločného localStorage (admin.html ich nastavuje)
-// Fallback: default hodnoty
 function loadConfig() {
   try {
     const raw = localStorage.getItem('hc_v2');
     if (raw) return JSON.parse(raw);
   } catch(e) {}
-  return {
-    workers: [],
-    games: [],
-    positions: [],
-    attendance: [],
-    gsUrl: ''
-  };
+  return { workers: [], games: [], positions: [], attendance: [], gsUrl: '' };
 }
 
 function saveConfig(cfg) {
@@ -225,26 +218,32 @@ function saveConfig(cfg) {
 
 let cfg = loadConfig();
 
-function populate() {
+async function populate() {
   const gsUrl = cfg.gsUrl || GAS_URL;
+  const notice = document.getElementById('load-notice');
+
   if (!gsUrl) {
-    fillSelects(cfg.workers||[], cfg.games||[], cfg.positions||[]);
+    notice.style.display = 'none';
+    fillSelects(cfg.workers || [], cfg.games || [], cfg.positions || []);
     return;
   }
-  fetch(gsUrl + '?action=config')
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        cfg.workers   = data.workers;
-        cfg.games     = data.games;
-        cfg.positions = data.positions;
-        saveConfig(cfg);
-      }
-      fillSelects(cfg.workers||[], cfg.games||[], cfg.positions||[]);
-    })
-    .catch(() => {
-      fillSelects(cfg.workers||[], cfg.games||[], cfg.positions||[]);
-    });
+
+  try {
+    // redirect:follow je dôležité – GAS robí redirect na /exec
+    const res = await fetch(gsUrl + '?action=config', { redirect: 'follow' });
+    const data = await res.json();
+    if (data.ok) {
+      cfg.workers   = data.workers   || [];
+      cfg.games     = data.games     || [];
+      cfg.positions = data.positions || [];
+      saveConfig(cfg);
+    }
+  } catch(e) {
+    console.warn('Nepodarilo sa načítať z GAS, používam lokálne dáta:', e);
+  }
+
+  notice.style.display = 'none';
+  fillSelects(cfg.workers || [], cfg.games || [], cfg.positions || []);
 }
 
 function fillSelects(workers, games, positions) {
@@ -259,7 +258,16 @@ function fillSelects(workers, games, positions) {
     positions.map(p => `<option value="${esc(p.name)}" data-r="${p.reward}">${esc(p.name)}</option>`).join('');
 }
 
-function updateHint() {}
+function updateHint() {
+  const ps = document.getElementById('ci-position');
+  const selected = ps.options[ps.selectedIndex];
+  const hint = document.getElementById('reward-hint');
+  if (selected && selected.dataset.r) {
+    hint.innerHTML = `Odmena: <strong>${selected.dataset.r} €</strong>`;
+  } else {
+    hint.textContent = '';
+  }
+}
 
 async function submitCheckin() {
   const name = document.getElementById('ci-name').value;
@@ -272,6 +280,9 @@ async function submitCheckin() {
     return;
   }
   err.style.display = 'none';
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
 
   const posObj = cfg.positions.find(p => p.name === pos);
   const reward = posObj ? posObj.reward : 0;
@@ -287,28 +298,31 @@ async function submitCheckin() {
   cfg.attendance.push(entry);
   saveConfig(cfg);
 
-  // Odošli na Google Sheets
+  // Odošli na Google Sheets (no-cors je OK pre POST – len ukladáme, netreba čítať odpoveď)
   const gsUrl = cfg.gsUrl || GAS_URL;
   if (gsUrl) {
     try {
       fetch(gsUrl, {
-        method: 'POST', mode: 'no-cors',
+        method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'checkin', ...entry })
       });
     } catch(e) {}
   }
 
+  btn.disabled = false;
+
   // Zobraz úspech
   document.getElementById('ci-form').style.display = 'none';
   document.getElementById('suc-name').textContent = name;
   document.getElementById('suc-game').textContent = game + ' · ' + pos;
-  document.getElementById('suc-reward').textContent = '';
+  document.getElementById('suc-reward').textContent = reward ? `Odmena: ${reward} €` : '';
   document.getElementById('ci-success').style.display = 'block';
 }
 
 function resetForm() {
-  cfg = loadConfig(); // obnov prípadné zmeny z adminu
+  cfg = loadConfig();
   populate();
   document.getElementById('ci-name').value = '';
   document.getElementById('ci-game').value = '';
@@ -327,3 +341,4 @@ populate();
 </script>
 </body>
 </html>
+HTMLEOF
