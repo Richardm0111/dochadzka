@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SportTrend Dochádzka-Admin</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   :root {
     --ice-mid: #378ADD; --ice-dark: #0C447C; --ice: #E6F1FB;
@@ -148,7 +149,7 @@
 <div class="panel" id="panel-report">
   <div class="month-bar">
     <select id="rep-month" onchange="renderReport()" style="max-width:180px;"></select>
-    <button class="btn btn-sm" onclick="exportOdmenyCSV()"><i class="ti ti-download"></i> Odmeny CSV</button>
+    <button class="btn btn-sm" onclick="exportOdmenyCSV()"><i class="ti ti-download"></i> Odmeny Excel</button>
     <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Tlač</button>
   </div>
   <div class="grid3" style="margin-bottom:1rem;">
@@ -433,59 +434,89 @@ function exportOdmenyCSV() {
   const workers = [...new Set(filt.map(a => a.name))].sort();
   const byW = {};
   workers.forEach(w => { byW[w] = filt.filter(a => a.name === w); });
-
   const maxRows = Math.max(...workers.map(w => byW[w].length));
-  const rows = [];
 
-  // HLAVIČKA: Mená oddelené stredníkom ("Meno";"")
+  // Štýly
+  const nameStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } } };
+  const labelStyle = {};
+  const rewardStyle = {
+    fill: { fgColor: { rgb: 'FFFFFF00' } },
+    alignment: { horizontal: 'center' }
+  };
+  const totalLabelStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } } };
+  const totalValStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } }, alignment: { horizontal: 'center' } };
+
+  // Sformátuj dátum zo "dd.MM.yyyy" alebo "dd.MM.yyyy HH:mm" na "D.M."
+  function shortDate(a) {
+    const raw = a.date || a.datetime || '';
+    const m = raw.match(/^(\d{1,2})\.(\d{1,2})\./);
+    if (m) return `${m[1]}.${m[2]}.`;
+    return raw;
+  }
+
+  const aoa = [];
+  // Hlavička: meno, prázdny stĺpec pre každého pracovníka
   const header = [];
   workers.forEach(w => { header.push(w); header.push(''); });
-  rows.push(header);
+  aoa.push(header);
 
-  // DATA: Zápasy a odmeny pod nimi
   for (let i = 0; i < maxRows; i++) {
     const row = [];
     workers.forEach(w => {
       const entry = byW[w][i];
       if (entry) {
-        row.push(entry.game);
+        row.push(`${shortDate(entry)}${entry.position}`);
         row.push(entry.reward);
       } else {
         row.push('');
         row.push('');
       }
     });
-    rows.push(row);
+    aoa.push(row);
   }
 
-  // PRÁZDNY RIADOK
+  // Prázdny riadok
   const emptyRow = [];
   workers.forEach(() => { emptyRow.push(''); emptyRow.push(''); });
-  rows.push(emptyRow);
+  aoa.push(emptyRow);
 
-  // RIADOK SPOLU
+  // Riadok spolu
   const totals = [];
   workers.forEach(w => {
-    const totalReward = byW[w].reduce((sum, a) => sum + a.reward, 0);
-    totals.push('spolu:');
+    const totalReward = byW[w].reduce((s, a) => s + a.reward, 0);
+    totals.push('');
     totals.push(totalReward);
   });
-  rows.push(totals);
+  aoa.push(totals);
 
-  // Spojenie do formátu pre Excel (bodkočiarky)
-  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  
-  // Bezpečné vyvolanie sťahovania v prehliadači
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `odmeny_${chosen.replace('/', '_')}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Šírky stĺpcov
+  ws['!cols'] = [];
+  workers.forEach(() => { ws['!cols'].push({ wch: 14 }); ws['!cols'].push({ wch: 8 }); });
+
+  const totalRowIdx = aoa.length - 1;
+
+  // Aplikuj štýly na bunky
+  for (let c = 0; c < workers.length * 2; c++) {
+    const isLabelCol = c % 2 === 0;
+    for (let r = 0; r < aoa.length; r++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws[addr]) continue;
+      if (r === 0) {
+        // hlavička s menom
+        ws[addr].s = isLabelCol ? nameStyle : {};
+      } else if (r === totalRowIdx) {
+        ws[addr].s = isLabelCol ? totalLabelStyle : totalValStyle;
+      } else {
+        ws[addr].s = isLabelCol ? labelStyle : rewardStyle;
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Odmeny');
+  XLSX.writeFile(wb, `odmeny_${chosen.replace('/', '_')}.xlsx`);
 }
 function saveGsUrl(){ 
   S.gsUrl = document.getElementById('gs-url').value.trim(); 
