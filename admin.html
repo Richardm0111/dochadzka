@@ -434,7 +434,6 @@ function exportOdmenyCSV() {
   const workers = [...new Set(filt.map(a => a.name))].sort();
   const byW = {};
   workers.forEach(w => { byW[w] = filt.filter(a => a.name === w); });
-  const maxRows = Math.max(...workers.map(w => byW[w].length));
 
   // Štýly
   const nameStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } } };
@@ -446,34 +445,30 @@ function exportOdmenyCSV() {
   const totalLabelStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } } };
   const totalValStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } }, alignment: { horizontal: 'center' } };
 
-  // Sformátuj dátum zo "dd.MM.yyyy" alebo "dd.MM.yyyy HH:mm" na "D.M."
-  function shortDate(a) {
-    const raw = a.date || a.datetime || '';
-    const m = raw.match(/^(\d{1,2})\.(\d{1,2})\./);
-    if (m) return `${m[1]}.${m[2]}.`;
-    return raw;
-  }
-
-  // Vytiahni kategóriu zápasu (časť za dátumom v "6.12 MŽ" -> "MŽ")
-  function category(a) {
-    const g = String(a.game || '').trim();
-    const parts = g.split(' ');
-    return parts.length > 1 ? parts.slice(1).join(' ') : g;
-  }
-
   const aoa = [];
   // Hlavička: meno, prázdny stĺpec pre každého pracovníka
   const header = [];
   workers.forEach(w => { header.push(w); header.push(''); });
   aoa.push(header);
 
-  for (let i = 0; i < maxRows; i++) {
+  // Riadky: zápasy/odmeny + súčet hneď po poslednom zázname pracovníka.
+  // Riadky idú dovtedy, kým aspoň jeden pracovník má ešte čo zobraziť
+  // (vlastný počet záznamov + 1 riadok na súčet pre každého).
+  const maxLen = Math.max(...workers.map(w => byW[w].length + 1));
+  const totalRowPerWorker = {}; // index riadku kde má worker svoj súčet
+  workers.forEach(w => { totalRowPerWorker[w] = byW[w].length; });
+
+  for (let i = 0; i < maxLen; i++) {
     const row = [];
     workers.forEach(w => {
-      const entry = byW[w][i];
-      if (entry) {
-        row.push(entry.game);
-        row.push(entry.reward);
+      const entries = byW[w];
+      if (i < entries.length) {
+        row.push(entries[i].game);
+        row.push(entries[i].reward);
+      } else if (i === totalRowPerWorker[w]) {
+        const totalReward = entries.reduce((s, a) => s + a.reward, 0);
+        row.push('');
+        row.push(totalReward);
       } else {
         row.push('');
         row.push('');
@@ -482,44 +477,34 @@ function exportOdmenyCSV() {
     aoa.push(row);
   }
 
-  // Prázdny riadok
-  const emptyRow = [];
-  workers.forEach(() => { emptyRow.push(''); emptyRow.push(''); });
-  aoa.push(emptyRow);
-
-  // Riadok spolu
-  const totals = [];
-  workers.forEach(w => {
-    const totalReward = byW[w].reduce((s, a) => s + a.reward, 0);
-    totals.push('');
-    totals.push(totalReward);
-  });
-  aoa.push(totals);
-
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
   // Šírky stĺpcov
   ws['!cols'] = [];
   workers.forEach(() => { ws['!cols'].push({ wch: 14 }); ws['!cols'].push({ wch: 8 }); });
 
-  const totalRowIdx = aoa.length - 1;
-
   // Aplikuj štýly na bunky
-  for (let c = 0; c < workers.length * 2; c++) {
-    const isLabelCol = c % 2 === 0;
+  workers.forEach((w, wi) => {
+    const labelCol = wi * 2;
+    const valCol = wi * 2 + 1;
+    const totalRow = totalRowPerWorker[w] + 1; // +1 kvôli hlavičke v aoa
     for (let r = 0; r < aoa.length; r++) {
-      const addr = XLSX.utils.encode_cell({ r, c });
-      if (!ws[addr]) continue;
+      const labelAddr = XLSX.utils.encode_cell({ r, c: labelCol });
+      const valAddr = XLSX.utils.encode_cell({ r, c: valCol });
+      if (!ws[labelAddr]) ws[labelAddr] = { t: 's', v: '' };
+      if (!ws[valAddr]) ws[valAddr] = { t: 's', v: '' };
       if (r === 0) {
-        // hlavička s menom
-        ws[addr].s = isLabelCol ? nameStyle : {};
-      } else if (r === totalRowIdx) {
-        ws[addr].s = isLabelCol ? totalLabelStyle : totalValStyle;
-      } else {
-        ws[addr].s = isLabelCol ? labelStyle : rewardStyle;
+        ws[labelAddr].s = nameStyle;
+        ws[valAddr].s = {};
+      } else if (r === totalRow) {
+        ws[labelAddr].s = totalLabelStyle;
+        ws[valAddr].s = totalValStyle;
+      } else if (r < totalRow) {
+        ws[labelAddr].s = labelStyle;
+        ws[valAddr].s = rewardStyle;
       }
     }
-  }
+  });
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Odmeny');
