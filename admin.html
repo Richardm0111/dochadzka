@@ -454,6 +454,13 @@ function exportOdmenyCSV() {
     return raw;
   }
 
+  // Vytiahni kategóriu zápasu (časť za dátumom v "6.12 MŽ" -> "MŽ")
+  function category(a) {
+    const g = String(a.game || '').trim();
+    const parts = g.split(' ');
+    return parts.length > 1 ? parts.slice(1).join(' ') : g;
+  }
+
   const aoa = [];
   // Hlavička: meno, prázdny stĺpec pre každého pracovníka
   const header = [];
@@ -465,7 +472,7 @@ function exportOdmenyCSV() {
     workers.forEach(w => {
       const entry = byW[w][i];
       if (entry) {
-        row.push(`${shortDate(entry)}${entry.position}`);
+        row.push(entry.game);
         row.push(entry.reward);
       } else {
         row.push('');
