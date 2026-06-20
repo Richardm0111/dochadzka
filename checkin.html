@@ -259,7 +259,6 @@ function fillSelects(workers, games, positions) {
 function updateHint() {
   const ps = document.getElementById('ci-position');
   const selected = ps.options[ps.selectedIndex];
-  const hint = document.getElementById('reward-hint');
   if (selected && selected.dataset.r) {
     hint.innerHTML = `Odmena: <strong>${selected.dataset.r} €</strong>`;
   } else {
@@ -324,7 +323,6 @@ function resetForm() {
   document.getElementById('ci-name').value = '';
   document.getElementById('ci-game').value = '';
   document.getElementById('ci-position').value = '';
-  document.getElementById('reward-hint').textContent = '';
   document.getElementById('err-msg').style.display = 'none';
   document.getElementById('ci-form').style.display = 'block';
   document.getElementById('ci-success').style.display = 'none';
