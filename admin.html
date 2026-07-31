@@ -149,7 +149,8 @@
 <div class="panel" id="panel-report">
   <div class="month-bar">
     <select id="rep-month" onchange="renderReport()" style="max-width:180px;"></select>
-    <button class="btn btn-sm" onclick="exportOdmenyCSV()"><i class="ti ti-download"></i> Odmeny Excel</button>
+    <button class="btn btn-sm" onclick="exportOdmenyCSV()"><i class="ti ti-download"></i> Odmeny CSV</button>
+<button class="btn btn-sm" onclick="exportNakladyCSV()"><i class="ti ti-download"></i> Náklady CSV</button>
     <button class="btn btn-sm" onclick="window.print()"><i class="ti ti-printer"></i> Tlač</button>
   </div>
   <div class="grid3" style="margin-bottom:1rem;">
@@ -430,85 +431,53 @@ function exportOdmenyCSV() {
   const filt = S.attendance.filter(a => a.month === chosen);
   if (!filt.length) { alert('Žiadne záznamy pre tento mesiac.'); return; }
 
-  // 1. Unikátni pracovníci abecedne
   const workers = [...new Set(filt.map(a => a.name))].sort();
-  const byW = {};
-  workers.forEach(w => { byW[w] = filt.filter(a => a.name === w); });
-
-  // Štýly
-  const nameStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } } };
-  const labelStyle = {};
-  const rewardStyle = {
-    fill: { fgColor: { rgb: 'FFFFFF00' } },
-    alignment: { horizontal: 'center' }
-  };
-  const totalLabelStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } } };
-  const totalValStyle = { font: { bold: true, color: { rgb: 'FFFF0000' } }, alignment: { horizontal: 'center' } };
-
-  const aoa = [];
-  // Hlavička: meno, prázdny stĺpec pre každého pracovníka
-  const header = [];
-  workers.forEach(w => { header.push(w); header.push(''); });
-  aoa.push(header);
-
-  // Riadky: zápasy/odmeny + súčet hneď po poslednom zázname pracovníka.
-  // Riadky idú dovtedy, kým aspoň jeden pracovník má ešte čo zobraziť
-  // (vlastný počet záznamov + 1 riadok na súčet pre každého).
-  const maxLen = Math.max(...workers.map(w => byW[w].length + 1));
-  const totalRowPerWorker = {}; // index riadku kde má worker svoj súčet
-  workers.forEach(w => { totalRowPerWorker[w] = byW[w].length; });
-
-  for (let i = 0; i < maxLen; i++) {
-    const row = [];
-    workers.forEach(w => {
-      const entries = byW[w];
-      if (i < entries.length) {
-        row.push(entries[i].game);
-        row.push(entries[i].reward);
-      } else if (i === totalRowPerWorker[w]) {
-        const totalReward = entries.reduce((s, a) => s + a.reward, 0);
-        row.push('');
-        row.push(totalReward);
-      } else {
-        row.push('');
-        row.push('');
-      }
-    });
-    aoa.push(row);
-  }
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  // Šírky stĺpcov
-  ws['!cols'] = [];
-  workers.forEach(() => { ws['!cols'].push({ wch: 14 }); ws['!cols'].push({ wch: 8 }); });
-
-  // Aplikuj štýly na bunky
-  workers.forEach((w, wi) => {
-    const labelCol = wi * 2;
-    const valCol = wi * 2 + 1;
-    const totalRow = totalRowPerWorker[w] + 1; // +1 kvôli hlavičke v aoa
-    for (let r = 0; r < aoa.length; r++) {
-      const labelAddr = XLSX.utils.encode_cell({ r, c: labelCol });
-      const valAddr = XLSX.utils.encode_cell({ r, c: valCol });
-      if (!ws[labelAddr]) ws[labelAddr] = { t: 's', v: '' };
-      if (!ws[valAddr]) ws[valAddr] = { t: 's', v: '' };
-      if (r === 0) {
-        ws[labelAddr].s = nameStyle;
-        ws[valAddr].s = {};
-      } else if (r === totalRow) {
-        ws[labelAddr].s = totalLabelStyle;
-        ws[valAddr].s = totalValStyle;
-      } else if (r < totalRow) {
-        ws[labelAddr].s = labelStyle;
-        ws[valAddr].s = rewardStyle;
-      }
-    }
+  const rows = [['Meno', 'Odmena']];
+  workers.forEach(w => {
+    const total = filt.filter(a => a.name === w).reduce((s, a) => s + a.reward, 0);
+    rows.push([w, total]);
   });
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Odmeny');
-  XLSX.writeFile(wb, `odmeny_${chosen.replace('/', '_')}.xlsx`);
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `odmeny_${chosen.replace('/', '_')}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportNakladyCSV() {
+  const chosen = document.getElementById('rep-month').value;
+  const filt = S.attendance.filter(a => a.month === chosen);
+  if (!filt.length) { alert('Žiadne záznamy pre tento mesiac.'); return; }
+
+  function getCategory(game) {
+    const parts = String(game || '').trim().split(' ');
+    return parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+  }
+
+  const catMap = {};
+  filt.forEach(a => {
+    const cat = getCategory(a.game);
+    if (!catMap[cat]) catMap[cat] = { odmeny: 0, zapasy: new Set() };
+    catMap[cat].odmeny += a.reward;
+    catMap[cat].zapasy.add(a.game);
+  });
+
+  const rows = [['Kategória', 'Náklady (€)', 'Počet zápasov']];
+  Object.keys(catMap).sort().forEach(cat => {
+    rows.push([cat, catMap[cat].odmeny, catMap[cat].zapasy.size]);
+  });
+  const celkom = filt.reduce((s, a) => s + a.reward, 0);
+  rows.push(['spolu :', celkom, '']);
+
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `naklady_${chosen.replace('/', '_')}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function saveGsUrl(){ 
   S.gsUrl = document.getElementById('gs-url').value.trim(); 
